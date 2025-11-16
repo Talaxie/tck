@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="
+          http://maven.apache.org/POM/4.0.0
+          http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.talaxie</groupId>
+    <artifactId>talaxie-component</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Composants Talaxie</name>
+    <description>Ensemble de composants pour Talaxie</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Génération de la doc HTML/PDF (optionnel) -->
+        <talend.documentation.htmlAndPdf>false</talend.documentation.htmlAndPdf>
+
+        <!-- Chemin studio pour deploy-in-studio (à surcharger dans settings.xml ou en ligne de commande) -->
+        <talend.component.studioHome/>
+
+        <!-- Version du TCK Talend -->
+        <talend.version>1.85.0</talend.version>
+
+        <!-- Version de Java -->
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+        <!-- API Talend Component (TCK) -->
+        <dependency>
+            <groupId>org.talend.sdk.component</groupId>
+            <artifactId>component-api</artifactId>
+            <version>${talend.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Tests JUnit -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.1</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Runtime JUnit pour les tests de composants Talend -->
+        <dependency>
+            <groupId>org.talend.sdk.component</groupId>
+            <artifactId>component-runtime-junit</artifactId>
+            <version>${talend.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Parquet + Avro -->
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>1.13.1</version>
+        </dependency>
+
+        <!-- Hadoop Common (Path, Configuration, etc.) -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>3.3.6</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-jdk14</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>log4j-over-slf4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Hadoop MapReduce Client Core (nécessaire pour Parquet) -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-mapreduce-client-core</artifactId>
+            <version>3.3.6</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>log4j-over-slf4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <extensions>
+            <!-- Plugin Talend pour la génération des composants -->
+            <extension>
+                <groupId>org.talend.sdk.component</groupId>
+                <artifactId>talend-component-maven-plugin</artifactId>
+                <version>${talend.version}</version>
+            </extension>
+        </extensions>
+
+        <plugins>
+            <!-- Compilation Java 17 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                    <release>17</release>
+                    <forceJavacCompilerUse>true</forceJavacCompilerUse>
+                    <compilerId>javac</compilerId>
+                    <fork>true</fork>
+                    <compilerArgs>
+                        <arg>-parameters</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- Tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
+                <configuration>
+                    <trimStackTrace>false</trimStackTrace>
+                    <runOrder>alphabetical</runOrder>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <!-- Déjà présents -->
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+
+                                        <!-- Exclusion complète SLF4J -->
+                                        <exclude>org/slf4j/**</exclude>
+                                        <exclude>**/slf4j-*.class</exclude>
+
+                                        <!-- Log4j SLF4J bridge -->
+                                        <exclude>org/apache/logging/log4j/slf4j/**</exclude>
+                                        <exclude>org/apache/logging/slf4j/**</exclude>
+                                        <exclude>org/apache/logging/log4j/**/log4j-slf4j-impl*</exclude>
+
+                                        <!-- META-INF maven descriptors SLF4J -->
+                                        <exclude>META-INF/maven/org.slf4j/**</exclude>
+
+                                        <!-- Licences SLF4J -->
+                                        <exclude>META-INF/license/LICENSE.slf4j.txt</exclude>
+
+                                        <!-- Old log4j -->
+                                        <exclude>org/apache/log4j/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

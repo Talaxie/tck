@@ -1,0 +1,12 @@
+/target/original-talaxie-component-0.0.1-SNAPSHOT.jar
+# Build artifacts
+target/
+*.jar
+*.car
+*.war
+*.zip
+*.tar.gz
+
+# IntelliJ files
+.idea/
+*.iml
