@@ -7,7 +7,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.talaxie</groupId>
-    <artifactId>talaxie-component</artifactId>
+    <artifactId>talaxieParquet</artifactId>
     <version>0.0.3</version>
     <packaging>jar</packaging>
 
