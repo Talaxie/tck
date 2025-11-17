@@ -3,61 +3,106 @@
  */
 package com.talaxie.components.service;
 
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaBuilder;
-import org.talend.sdk.component.api.record.Schema.Type;
+import org.apache.avro.Schema.Field;
+import org.talend.sdk.component.api.meta.Documentation;
 import org.talend.sdk.component.api.record.Schema.Entry;
 import org.talend.sdk.component.api.service.Service;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @Service
-public class ParquetOutputSchemaService {
+@Documentation("Service de construction de schéma Avro à partir d'un schéma Talend pour l'écriture Parquet.")
+public class ParquetOutputSchemaService implements Serializable {
 
-    public Schema buildAvroSchema(org.talend.sdk.component.api.record.Schema talendSchema) {
+    public Schema buildAvroSchema(final org.talend.sdk.component.api.record.Schema talendSchema) {
 
-        SchemaBuilder.FieldAssembler<Schema> fields =
-                SchemaBuilder.record("TalaxieRecord")
-                        .namespace("com.talaxie.parquet")
-                        .fields();
+        final List<Field> fields = new ArrayList<>();
 
-        for (Entry e : talendSchema.getEntries()) {
-            fields = fields.name(e.getName())
-                    .type(convertType(e))
-                    .noDefault();
-        }
+        for (Entry entry : talendSchema.getEntries()) {
+            Schema fieldSchema = toAvroType(entry);
 
-        return fields.endRecord();
-    }
-
-    private Schema convertType(Entry e) {
-
-        Type t = e.getType();
-
-        return switch (t) {
-
-            case BOOLEAN -> SchemaBuilder.builder().booleanType();
-            case INT -> SchemaBuilder.builder().intType();
-            case LONG -> SchemaBuilder.builder().longType();
-            case FLOAT -> SchemaBuilder.builder().floatType();
-            case DOUBLE -> SchemaBuilder.builder().doubleType();
-            case STRING -> SchemaBuilder.builder().stringType();
-
-            case BYTES -> SchemaBuilder.builder().bytesType();
-
-            case ARRAY -> SchemaBuilder.array().items(
-                    SchemaBuilder.builder().stringType()
+            // Tous les champs sont NULLABLE
+            Schema nullableSchema = Schema.createUnion(
+                    Arrays.asList(
+                            Schema.create(Schema.Type.NULL),
+                            fieldSchema
+                    )
             );
 
-            case RECORD -> {
-                SchemaBuilder.FieldAssembler<Schema> nested =
-                        SchemaBuilder.record(e.getName()).fields();
-                e.getElementSchema().getEntries().forEach(child -> {
-                    nested.name(child.getName()).type(convertType(child)).noDefault();
-                });
-                yield nested.endRecord();
-            }
+            Field field = new Field(
+                    entry.getName(),
+                    nullableSchema,
+                    null,
+                    Schema.NULL_VALUE
+            );
 
-            default -> SchemaBuilder.builder().stringType();
-        };
+            fields.add(field);
+        }
+
+        return Schema.createRecord(
+                "TalaxieParquetRecord",
+                "Schéma Avro généré à partir d'un Schema Talend pour l'écriture Parquet.",
+                "com.talaxie.parquet",
+                false,
+                fields
+        );
+    }
+
+    private Schema toAvroType(final Entry entry) {
+
+        Schema baseSchema;
+
+        switch (entry.getType()) {
+            case INT:
+                // INT32 = type primitif Avro
+                baseSchema = Schema.create(Schema.Type.INT);
+                break;
+
+            case LONG:
+                // INT64 = type primitif Avro
+                baseSchema = Schema.create(Schema.Type.LONG);
+                break;
+
+            case FLOAT:
+                baseSchema = Schema.create(Schema.Type.FLOAT);
+                break;
+
+            case DOUBLE:
+                baseSchema = Schema.create(Schema.Type.DOUBLE);
+                break;
+
+            case BOOLEAN:
+                baseSchema = Schema.create(Schema.Type.BOOLEAN);
+                break;
+
+            case BYTES:
+                baseSchema = Schema.create(Schema.Type.BYTES);
+                break;
+
+            case DATETIME:
+                // DATETIME → timestamp-millis
+                baseSchema = LogicalTypes.timestampMillis().addToSchema(
+                        Schema.create(Schema.Type.LONG)
+                );
+                break;
+
+            case DECIMAL:
+                Schema decimalSchema = Schema.create(Schema.Type.BYTES);
+                LogicalTypes.decimal(38, 18).addToSchema(decimalSchema);
+                baseSchema = decimalSchema;
+                break;
+
+            case STRING:
+            default:
+                baseSchema = Schema.create(Schema.Type.STRING);
+                break;
+        }
+
+        return baseSchema;
     }
 }

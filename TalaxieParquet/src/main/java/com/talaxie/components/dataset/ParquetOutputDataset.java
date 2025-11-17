@@ -13,7 +13,6 @@ import java.io.Serializable;
 
 @DataSet("ParquetOutputDataset")
 @GridLayout({
-        @GridLayout.Row({ "datastore" }),
         @GridLayout.Row({ "path" }),
         @GridLayout.Row({ "compression" }),
         @GridLayout.Row({ "overwrite" })

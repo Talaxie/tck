@@ -4,6 +4,7 @@
 package com.talaxie.components.service;
 
 import com.talaxie.components.dataset.ParquetInputDataset;
+import org.apache.avro.LogicalType;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -57,7 +58,20 @@ public class ParquetInputSchemaService {
         return s;
     }
 
-    private Type mapType(final org.apache.avro.Schema.Type avroType) {
+    private Type mapType(final org.apache.avro.Schema schema) {
+        final org.apache.avro.Schema.Type avroType = schema.getType();
+        final LogicalType logicalType = schema.getLogicalType();
+
+        if (logicalType != null) {
+            if (logicalType.getName().equals("date")) {
+                return Type.DATETIME; // Talend: Date is represented as DateTime
+            }
+            if (logicalType.getName().startsWith("timestamp")) {
+                return Type.DATETIME;
+            }
+            // autres Cas spécialisés si besoin (time-millis, decimal, etc.)
+        }
+
         return switch (avroType) {
             case BOOLEAN -> Type.BOOLEAN;
             case INT -> Type.INT;
@@ -80,7 +94,7 @@ public class ParquetInputSchemaService {
         for (org.apache.avro.Schema.Field field : avroSchema.getFields()) {
 
             final org.apache.avro.Schema effective = unwrapUnion(field.schema());
-            final Type talendType = mapType(effective.getType());
+            final Type talendType = mapType(effective);
 
             Schema.Entry.Builder entryBuilder =
                     recordBuilderFactory
@@ -98,7 +112,7 @@ public class ParquetInputSchemaService {
                 case ARRAY -> {
                     // On suppose array simple (list primitives ou strings)
                     org.apache.avro.Schema elementSchema = effective.getElementType();
-                    Type elementType = mapType(elementSchema.getType());
+                    Type elementType = mapType(elementSchema);
                     Schema elementTalendSchema =
                             recordBuilderFactory.newSchemaBuilder(elementType).build();
                     entryBuilder = entryBuilder.withElementSchema(elementTalendSchema);

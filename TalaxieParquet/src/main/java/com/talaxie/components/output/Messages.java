@@ -18,5 +18,11 @@ public class Messages {
         return BUNDLE.getString("errorFileExists").replace("{0}", path);
     }
 
+    public static String errorFileExistsAndOverwriteDisabled(String path) {
+        return BUNDLE.getString("errorFileExistsAndOverwriteDisabled").replace("{0}", path);
+    }
 
+    public static String errorParquetWriter() {
+        return BUNDLE.getString("errorParquetWriter");
+    }
 }

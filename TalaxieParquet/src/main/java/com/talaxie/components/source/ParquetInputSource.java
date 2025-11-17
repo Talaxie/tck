@@ -10,7 +10,13 @@ import org.apache.parquet.column.ColumnReader;
 import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+
 import org.talend.sdk.component.api.configuration.Option;
 import org.talend.sdk.component.api.input.Producer;
 import org.talend.sdk.component.api.meta.Documentation;
@@ -21,6 +27,10 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.io.Serializable;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Map;
 
 @Documentation("Low-level Parquet reader without Hadoop FS, compatible with Talend Studio.")
@@ -94,20 +104,63 @@ public class ParquetInputSource implements Serializable {
 
             Record.Builder builder = recordBuilderFactory.newRecordBuilder();
 
+
             for (String colName : columnReaders.keySet()) {
                 ColumnReader reader = columnReaders.get(colName);
 
-                switch (reader.getDescriptor().getType()) {
+                ColumnDescriptor descriptor = reader.getDescriptor();
+                PrimitiveType primitiveType = descriptor.getPrimitiveType();
+
+                PrimitiveTypeName physicalType = primitiveType.getPrimitiveTypeName();
+                LogicalTypeAnnotation logicalType = primitiveType.getLogicalTypeAnnotation();
+                OriginalType originalType = primitiveType.getOriginalType(); // fallback si besoin
+
+                switch (physicalType) {
                     case BOOLEAN:
                         builder.withBoolean(colName, reader.getBoolean());
                         break;
 
                     case INT32:
-                        builder.withInt(colName, reader.getInteger());
+                        // DATE logique stockée en INT32 (jours depuis epoch)
+                        if (logicalType instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation
+                                || originalType == OriginalType.DATE) {
+
+                            int daysSinceEpoch = reader.getInteger();
+                            LocalDate localDate = LocalDate.ofEpochDay(daysSinceEpoch);
+
+                            // Talend ne distingue pas DATE vs DATETIME, donc on met minuit
+                            ZonedDateTime zdt = localDate.atStartOfDay(ZoneId.of("UTC"));
+                            builder.withDateTime(colName, zdt);
+                        } else {
+                            builder.withInt(colName, reader.getInteger());
+                        }
                         break;
 
                     case INT64:
-                        builder.withLong(colName, reader.getLong());
+                        // TIMESTAMP logique stockée en INT64
+                        if (logicalType instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation ts) {
+                            long raw = reader.getLong();
+
+                            Instant instant;
+                            switch (ts.getUnit()) {
+                                case MILLIS:
+                                    instant = Instant.ofEpochMilli(raw);
+                                    break;
+                                case MICROS:
+                                    instant = Instant.ofEpochSecond(0, raw * 1_000L);
+                                    break;
+                                case NANOS:
+                                    instant = Instant.ofEpochSecond(0, raw);
+                                    break;
+                                default:
+                                    instant = Instant.ofEpochMilli(raw);
+                            }
+
+                            ZonedDateTime zdt = instant.atZone(ZoneId.of("UTC"));
+                            builder.withDateTime(colName, zdt);
+                        } else {
+                            builder.withLong(colName, reader.getLong());
+                        }
                         break;
 
                     case FLOAT:
@@ -119,10 +172,13 @@ public class ParquetInputSource implements Serializable {
                         break;
 
                     case BINARY:
+                        // à adapter si tu as des DECIMAL(BINARY) ou des BINARY non texte
                         builder.withString(colName, reader.getBinary().toStringUsingUTF8());
                         break;
 
                     default:
+                        System.out.println("Unsupported type: " + physicalType
+                                + " (logical=" + logicalType + ", original=" + originalType + ")");
                         builder.withString(colName, null);
                         break;
                 }
